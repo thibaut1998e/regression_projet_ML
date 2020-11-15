@@ -142,16 +142,34 @@ def test_model_with_cross_validation(X, y, n_spits=10):
     return total_error / n_spits
 
 
-
-def choose_nb_features(X, y, alpha=0.99, n_max=10, method='highest corr', plot=True):
-    errors = [10 ** 15]
-    for n in range(1, 4):
+def plot_error_against_nb_features(X, y, n_max=14, method='highest corr'):
+    errors = []
+    n_features = [n for n in range(1, n_max)]
+    for n in range(1, n_max):
         if method == 'highest corr':
             X_n, _ = select_features_with_highest_correlation(X, y, n)
         elif method == 'PCA':
             X_n, _ = select_features_with_PCA(X, n_features=n)
         else:
             raise Exception("Argument 'method' is unvalid")
+        errors.append(test_model_with_cross_validation(X_n, y))
+    print(errors)
+    plt.plot(n_features, errors)
+    plt.xlabel('number of features')
+    plt.ylabel('l1 error')
+    plt.title(f'error against the number of features selected with method {method}')
+    plt.show()
+
+
+
+
+def choose_nb_features(X, y, alpha=0.99, n_max=10, method='highest corr'):
+    errors = [10 ** 15]
+    for n in range(1, 4):
+        if method == 'highest corr':
+            X_n, _ = select_features_with_highest_correlation(X, y, n)
+        elif method == 'PCA':
+            X_n, _ = select_features_with_PCA(X, n_features=n)
         errors.append(test_model_with_cross_validation(X_n, y))
     n = 4
     while errors[n - 1] < alpha * errors[n - 4] and n < n_max:
@@ -161,15 +179,8 @@ def choose_nb_features(X, y, alpha=0.99, n_max=10, method='highest corr', plot=T
             X_n, _ = select_features_with_highest_correlation(X, y, n)
         elif method == 'PCA':
             X_n, _ = select_features_with_PCA(X, n_features=n)
-        else:
-            raise Exception("Argument 'method' is unvalid")
         errors.append(test_model_with_cross_validation(X_n, y))
-    if plot:
-        plt.plot(range(1, len(errors)), errors[1:])
-        plt.xlabel('number of features')
-        plt.ylabel('l1 error')
-        plt.title(f'error against the number of features selected with method {method}')
-        plt.show()
+
     return n
 
 
@@ -182,6 +193,7 @@ X_train = normalize(X_train)
 X_test = normalize(X_test)
 
 for method in ['highest corr', 'PCA']:
+    plot_error_against_nb_features(X_train, y_train, method=method)
     nb_features = choose_nb_features(X_train, y_train, method=method)
     print(f'number of features selected with method {method} : {nb_features}')
     if method == 'highest corr':
