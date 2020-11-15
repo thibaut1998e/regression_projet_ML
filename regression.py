@@ -1,3 +1,9 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Sun Nov 15 17:06:18 2020
+
+@author: Anthony
+"""
 
 """
 HousingData.csv
@@ -34,6 +40,7 @@ import pandas as pd
 from sklearn import *
 import math
 import matplotlib.pyplot as plt
+import copy as cp
 
 #print(X['MEDV'])
 
@@ -97,23 +104,34 @@ def correlation_input_output(X, y):
     return np.array([correlation(X[:, i], y) for i in range(X.shape[1])])
 
 
-def select_feature_with_highest_correlation(X, y, n_features=5):
-    correlations = correlation_input_output(X, y)
+def select_features_with_highest_correlation(X, y, n_features=5):
+    c_X = cp.deepcopy(X)
+    correlations = correlation_input_output(c_X, y)
     abs_corr = np.abs(correlations)
     perm_to_sort = abs_corr.argsort() #get the permutation used to sort thearray
     perm_to_sort = perm_to_sort[::-1] #reverse
     features_highest_cor = perm_to_sort[:n_features]
-    print(features_highest_cor)
-    X_prim = X[:, features_highest_cor]
+    #print(features_highest_cor)
+    X_prim = c_X[:, features_highest_cor]
     return X_prim, features_highest_cor
 
+def select_features_with_PCA(X, n_features=5):
+    c_X = cp.deepcopy(X)
+    pca = decomposition.PCA(n_components=n_features)
+    pca.fit(X)
+    return pca.transform(X)
+
+def train_and_obtain_model(X, y) :
+    model = LinearRegression()
+    model.fit(X, y)
+    return model
 
 def test_model_with_cross_validation(X, y, n_spits=10):
     from sklearn.model_selection import KFold
     from sklearn.linear_model import LinearRegression
     kf = KFold(n_splits=n_spits)
     total_error = 0
-    for train_idx, test_idx in kf.split(X):
+    for train_idx, test_idx in kf.split(cp.deepcopy(X)):
         X_train, X_test, y_train, y_test = X[train_idx, :], X[test_idx, :], y[train_idx], y[test_idx]
         model = LinearRegression()
         model.fit(X_train, y_train)
@@ -122,30 +140,49 @@ def test_model_with_cross_validation(X, y, n_spits=10):
         total_error += error
     return total_error/n_spits
 
+def plot_error_against_nb_features(X, y, n_max=10, method='highest corr') :
+    errors = []
+    n_features = [n for n in range(1, n_max)]
+    for n in range(1, n_max) :
+        if method == 'highest corr' :
+            X_n, _ = select_features_with_highest_correlation(X, y, n)
+        elif method == 'PCA' :
+            X_n = select_features_with_PCA(X, n_features=n)
+        else :
+            raise Exception("Argument 'method' is unvalid")
+        errors.append(test_model_with_cross_validation(X_n, y))
+    print(errors)
+    plt.plot(n_features, errors)
+    plt.show()
+    
+def choose_nb_features(X, y, alpha=0.99, n_max=10, method='highest corr') :
+    errors = [10 **15]
+    for n in range(1, 4) :
+        if method == 'highest corr' :
+            X_n, _ = select_features_with_highest_correlation(X, y, n)
+        elif method == 'PCA' :
+            X_n = select_features_with_PCA(X, n_features=n)
+        errors.append(test_model_with_cross_validation(X_n, y))
+    n = 4
+    while errors[n-1] < alpha * errors[n-4] and n < n_max :
+        n += 1
+        if method == 'highest corr' :
+            X_n, _ = select_features_with_highest_correlation(X, y, n)
+        elif method == 'PCA' :
+            X_n = select_features_with_PCA(X, n_features=n)
+        errors.append(test_model_with_cross_validation(X_n, y))
+    return n
 
-
-
-
+def predict_new_data(model, X_new) :
+    return model.predict(X_new)
 
 X, y = get_raw_data('HousingData.csv')
 X = normalize(X)
-X, _ = select_feature_with_highest_correlation(X, y, n_features=3)
+'''
+X, _ = select_features_with_highest_correlation(X, y, n_features=5)
+#X = select_features_with_PCA(X, n_features=1)
 error = test_model_with_cross_validation(X, y)
 print('the average error (L1 norm) computed with cross validation is : ', error)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+'''
+plot_error_against_nb_features(X, y, 10, method='PCA')
+print(choose_nb_features(X, y, method='highest corr'))
