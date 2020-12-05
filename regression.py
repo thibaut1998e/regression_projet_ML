@@ -29,6 +29,8 @@ lower status of the population (percent).
 medv (variable to explain)
 median value of owner-occupied homes in \$1000s
 """
+import math 
+import pandas as pd
 import numpy as np
 import pandas as pd
 from sklearn import *
@@ -37,8 +39,39 @@ import matplotlib.pyplot as plt
 import copy as cp
 from sklearn.linear_model import LinearRegression
 
-
-# print(X['MEDV'])
+def c_type(df,column):
+    i=0
+    
+    data_array = df[column].values
+    while i< len(data_array) :
+       if  type(data_array[i])==str : return str
+       if  math.isnan(data_array[i]) == False:
+           c_type=type(data_array[i])
+           break
+           
+       i=i+1
+    return c_type   
+        
+     
+        
+def one_hot_encode(df):
+    columns=df.columns
+    data=df
+    non_cat=[np.float64,np.int64,np.float32,np.int32]
+    ys=[]
+    for i in columns:
+        if c_type(df,i) not in non_cat:
+            y = pd.get_dummies(df[i], prefix=i)
+            print(y)
+            print('type',c_type(df,i))
+            print(data.columns)
+            data=data.drop(columns=[i])
+            print('after drop',data.columns)
+            ys.append(y)
+    L=[data]+ys        
+    result = pd.concat(L, axis=1, ignore_index=True)
+    
+    return result
 
 def get_raw_data(csv_path, variable_to_explain_idx=None, prop_test_data=0.05):
     """read the data from the csv, replace missing values, shuffle the lines and return the input matrix X
@@ -46,6 +79,7 @@ def get_raw_data(csv_path, variable_to_explain_idx=None, prop_test_data=0.05):
     y contains column variable_to_explain_idx and X all the other columns
     if variable_to_explain_idx is none it is set to the last column"""
     data = pd.read_csv(csv_path)
+    data_final=one_hot_encode(data)
     data_array = data.values
     perm = np.random.permutation(data_array.shape[0])
     data_array = data_array[perm, :]  # shuffle the lines
