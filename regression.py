@@ -1,7 +1,7 @@
 
 """
 HousingData.csv
-attributes : 
+attributes :
 crim : per capita crime rate by town
 zn : proportion of residential land zoned for lots over 25,000 sq.ft.
 indus
@@ -29,8 +29,6 @@ lower status of the population (percent).
 medv (variable to explain)
 median value of owner-occupied homes in \$1000s
 """
-import math 
-import pandas as pd
 import numpy as np
 import pandas as pd
 from sklearn import *
@@ -38,63 +36,75 @@ import math
 import matplotlib.pyplot as plt
 import copy as cp
 from sklearn.linear_model import LinearRegression
+from sklearn.utils import shuffle
+from scipy.stats import norm
 
-def c_type(df,column):
-    i=0
-    
-    data_array = df[column].values
-    while i< len(data_array) :
-       if  type(data_array[i])==str : return str
-       if  math.isnan(data_array[i]) == False:
-           c_type=type(data_array[i])
-           break
-           
-       i=i+1
-    return c_type   
-        
-     
-        
-def one_hot_encode(df):
-    columns=df.columns
-    data=df
-    non_cat=[np.float64,np.int64,np.float32,np.int32]
-    ys=[]
-    for i in columns:
-        if c_type(df,i) not in non_cat:
-            y = pd.get_dummies(df[i], prefix=i)
-            print(y)
-            print('type',c_type(df,i))
-            print(data.columns)
-            data=data.drop(columns=[i])
-            print('after drop',data.columns)
-            ys.append(y)
-    L=[data]+ys        
-    result = pd.concat(L, axis=1, ignore_index=True)
-    
-    return result
+# print(X['MEDV'])
 
-def get_raw_data(csv_path, variable_to_explain_idx=None, prop_test_data=0.05):
+
+
+
+def get_raw_data(csv_path, variable_to_explain_name=None, prop_test_data=0.05):
+    #Thibaut
     """read the data from the csv, replace missing values, shuffle the lines and return the input matrix X
     and its associated values y
     y contains column variable_to_explain_idx and X all the other columns
-    if variable_to_explain_idx is none it is set to the last column"""
+    if variable_to_explain_idx is none it is set to the last column
+    """
+
     data = pd.read_csv(csv_path)
-    data_final=one_hot_encode(data)
-    data_array = data.values
-    perm = np.random.permutation(data_array.shape[0])
-    data_array = data_array[perm, :]  # shuffle the lines
-    replace_missing_values(data_array)
-    if variable_to_explain_idx is None:
-        variable_to_explain_idx = data_array.shape[1] - 1
-    nb_attribute = data_array.shape[1]
-    X = data_array[:, [i for i in range(nb_attribute) if i != variable_to_explain_idx]]
-    y = data_array[:, variable_to_explain_idx]
-    n_train = int((1-prop_test_data)*X.shape[0])
+    data = shuffle(data)
+    if variable_to_explain_name is None:
+        variable_to_explain_name = data.columns[-1]
+    y = data[variable_to_explain_name]
+    X = data[[c for c in data.columns if c != variable_to_explain_name]]
+    X, attribute_names = one_hot_encode(X)
+    X = X.values
+    y = y.values
+    replace_missing_values(X)
+    n_train = int((1 - prop_test_data) * X.shape[0])
     X_train, y_train, X_test, y_test = X[:n_train, :], y[:n_train], X[n_train:, :], y[n_train:]
-    return X_train, y_train, X_test, y_test
+    return X_train, y_train, X_test, y_test, np.array(attribute_names)
+
+def c_type(df, column):
+    #Sanaa
+    i = 0
+    data_array = df[column].values
+    while i < len(data_array):
+        if type(data_array[i]) == str: return str
+        if math.isnan(data_array[i]) == False:
+            c_type = type(data_array[i])
+            break
+
+        i = i + 1
+    return c_type
+
+
+def one_hot_encode(df):
+    #Sanaa
+    """one hote encode the categorical attributes of a pandas data set"""
+    columns = df.columns
+    #print(columns)
+    data = df
+    non_cat = [np.float64, np.int64, np.float32, np.int32]
+    ys = []
+    attribute_names = []
+    for i in columns:
+        if c_type(df, i) not in non_cat:
+            y = pd.get_dummies(df[i], prefix=i)
+            attribute_names += list(y.columns)
+            data = data.drop(columns=[i])
+            ys.append(y)
+        else:
+            attribute_names.append(i)
+    L = [data] + ys
+    result = pd.concat(L, axis=1, ignore_index=True)
+
+    return result, attribute_names
 
 
 def replace_missing_values(data):
+    #Thibaut
     """replace the missing values by the mean of the corresponding attribute """
     for j in range(data.shape[1]):
         mean_j = 0
@@ -109,16 +119,20 @@ def replace_missing_values(data):
                 data[i][j] = mean_j
 
 
+
+
 def normalize(X):
+    #Thibaut
     min_max_scaler = preprocessing.MinMaxScaler()
     X_scaled = min_max_scaler.fit_transform(X)
-    return X_scaled
+    return X_scaled, min_max_scaler
 
 
 
 
 
 def covariance(v1, v2):
+    #Thibaut
     # returns the covariance between the 2 vectors
     mean_v1 = np.mean(v1)
     mean_v2 = np.mean(v2)
@@ -131,10 +145,12 @@ def correlation(v1, v2):
 
 def correlation_input_output(X, y):
     # return the correlations between the input variables and the output variable
+    #Thibaut
     return np.array([correlation(X[:, i], y) for i in range(X.shape[1])])
 
 
-def select_features_with_highest_correlation(X, y, n_features=5):
+def select_features_with_highest_correlation(X, y, n_features=5, title=''):
+    #Thibaut
     #c_X = cp.deepcopy(X)
     correlations = correlation_input_output(X, y)
     abs_corr = np.abs(correlations)
@@ -143,11 +159,19 @@ def select_features_with_highest_correlation(X, y, n_features=5):
     features_highest_cor = perm_to_sort[:n_features]
     # print(features_highest_cor)
     X_prim = X[:, features_highest_cor]
-    return X_prim, features_highest_cor
+    if title != '':
+        L = [np.sum(abs_corr[perm_to_sort][:i + 1]) for i in range(len(correlations) - 1)]
+        L /= np.sum(abs_corr)
+        plt.plot(L)
+        plt.xlabel('nb of features')
+        plt.ylabel('total correlation')
+        plt.title(title)
+        plt.show()
+    return X_prim, features_highest_cor, abs_corr[perm_to_sort][:n_features]
 
 
 def select_features_with_PCA(X, n_features=5):
-
+    #Anthony
     #c_X = cp.deepcopy(X)
     pca = decomposition.PCA(n_components=n_features)
     pca.fit(X)
@@ -155,6 +179,7 @@ def select_features_with_PCA(X, n_features=5):
 
 
 def train_and_obtain_model(X, y):
+    #Anthony
     model = LinearRegression()
     model.fit(X, y)
     return model
@@ -164,6 +189,7 @@ def L1(y_pred, y):
 
 
 def test_model_with_cross_validation(X, y, n_spits=10):
+    #Thibaut
     from sklearn.model_selection import KFold
     kf = KFold(n_splits=n_spits)
     total_error = 0
@@ -176,32 +202,35 @@ def test_model_with_cross_validation(X, y, n_spits=10):
     return total_error / n_spits
 
 
-def plot_error_against_nb_features(X, y, n_max=14, method='highest corr'):
+def plot_error_against_nb_features(X, y, training_set_name, n_max=None, method='highest corr'):
+    #Anthony
+    if n_max is None:
+        n_max = X.shape[1]
     errors = []
     n_features = [n for n in range(1, n_max)]
     for n in range(1, n_max):
         if method == 'highest corr':
-            X_n, _ = select_features_with_highest_correlation(X, y, n)
+            X_n, _, _ = select_features_with_highest_correlation(X, y, n)
         elif method == 'PCA':
             X_n, _ = select_features_with_PCA(X, n_features=n)
         else:
             raise Exception("Argument 'method' is unvalid")
         errors.append(test_model_with_cross_validation(X_n, y))
-    print(errors)
     plt.plot(n_features, errors)
     plt.xlabel('number of features')
     plt.ylabel('l1 error')
-    plt.title(f'error against the number of features selected with method {method}')
+    plt.title(f'{training_set_name} data set, error against the number of features selected with method {method}')
     plt.show()
 
 
-
-
-def choose_nb_features(X, y, alpha=0.99, n_max=10, method='highest corr'):
+def choose_nb_features(X, y, alpha=0.99, n_max=None, method='highest corr'):
+    #Anthony
+    if n_max is None:
+        n_max = X.shape[1]
     errors = [10 ** 15]
     for n in range(1, 4):
         if method == 'highest corr':
-            X_n, _ = select_features_with_highest_correlation(X, y, n)
+            X_n, _, _ = select_features_with_highest_correlation(X, y, n)
         elif method == 'PCA':
             X_n, _ = select_features_with_PCA(X, n_features=n)
         errors.append(test_model_with_cross_validation(X_n, y))
@@ -210,7 +239,7 @@ def choose_nb_features(X, y, alpha=0.99, n_max=10, method='highest corr'):
 
         n += 1
         if method == 'highest corr':
-            X_n, _ = select_features_with_highest_correlation(X, y, n)
+            X_n, _, _ = select_features_with_highest_correlation(X, y, n)
         elif method == 'PCA':
             X_n, _ = select_features_with_PCA(X, n_features=n)
         errors.append(test_model_with_cross_validation(X_n, y))
@@ -222,25 +251,46 @@ def predict_new_data(model, X_new):
     return model.predict(X_new)
 
 
-X_train, y_train, X_test, y_test = get_raw_data('HousingData.csv', prop_test_data=0.2)
-X_train = normalize(X_train)
-X_test = normalize(X_test)
+def main(training_set_path):
+    X_train, y_train, X_test, y_test, attribute_names = get_raw_data(training_set_path, prop_test_data=0.2)
+    X_train, min_max_scaler = normalize(X_train)
+    X_test = min_max_scaler.fit_transform(X_test)
+    for method in ['highest corr', 'PCA']:
+        print('method', method)
+        plot_error_against_nb_features(X_train, y_train, training_set_name=training_set_path,method=method)
+        nb_features = choose_nb_features(X_train, y_train, method=method)
+        print(f'number of features selected with method {method} : {nb_features}')
+        if method == 'highest corr':
+            title = f'total correlation against number of features for {training_set_path}'
+            X_train_proj, features_highest_cor, abs_cor = select_features_with_highest_correlation(X_train, y_train,
+                                                                                          n_features=nb_features,
+                                                                                          title=title)
+            print(f'feature selected are {attribute_names[features_highest_cor]}')
+            print(f'corresponding absolute correlation with output variable are {abs_cor}')
+            X_test_proj = X_test[:, features_highest_cor]
+        else:
+            X_train_proj, pca = select_features_with_PCA(X_train, n_features=nb_features)
+            X_test_proj = pca.transform(X_test)
 
-for method in ['highest corr', 'PCA']:
-    plot_error_against_nb_features(X_train, y_train, method=method)
-    nb_features = choose_nb_features(X_train, y_train, method=method)
-    print(f'number of features selected with method {method} : {nb_features}')
-    if method == 'highest corr':
-        X_train_proj, features_highest_cor = select_features_with_highest_correlation(X_train, y_train, n_features=nb_features)
-        X_test_proj = X_test[:, features_highest_cor]
-    else:
-        X_train_proj, pca = select_features_with_PCA(X_train, n_features=nb_features)
-        X_test_proj = pca.transform(X_test)
+        model = train_and_obtain_model(X_train_proj, y_train)
+        y_pred = model.predict(X_test_proj)
+        error = L1(y_pred, y_test)
+        std_dev = np.std(np.abs(y_pred-y_test))
+        confidence_level = 0.95
+        qt = norm.ppf((1-confidence_level)/2)
+        delta = -qt*std_dev/np.sqrt(len(y_test))
+        print(f'L1 error on test set ({len(y_pred)} data): ', error)
+        print(f'confidence intervall of L1 error with confidence level {confidence_level} : [{error-delta}, {error+delta}]')
+        print('*********')
 
-    model = train_and_obtain_model(X_train_proj, y_train)
-    y_pred = model.predict(X_test_proj)
-    error = L1(y_pred, y_test)
-    print(f'L1 error on test set : ', error)
+
+for data_set in ['HousingData.csv', 'spnbmd.csv']:
+    print(f'processing data set {data_set}')
+    main(data_set)
+    print('-----------------------------------')
+
+
+
 
 
 
