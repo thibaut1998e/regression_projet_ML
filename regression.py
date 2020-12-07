@@ -59,7 +59,7 @@ def get_raw_data(csv_path, variable_to_explain_name=None, prop_test_data=0.05, r
     y = data[variable_to_explain_name]
     X = data[[c for c in data.columns if c != variable_to_explain_name]]
     X, attribute_names = one_hot_encode(X)
-    x = normalize(x)
+    X = normalize(X)
     X = X.values
     y = y.values
     replace_missing_values(X, replace_missing_method)
