@@ -44,7 +44,7 @@ from scipy.stats import norm
 
 
 
-def get_raw_data(csv_path, variable_to_explain_name=None, prop_test_data=0.05):
+def get_raw_data(csv_path, variable_to_explain_name=None, prop_test_data=0.05, replace_missing_method=1):
     #Thibaut
     """read the data from the csv, replace missing values, shuffle the lines and return the input matrix X
     and its associated values y
@@ -59,9 +59,10 @@ def get_raw_data(csv_path, variable_to_explain_name=None, prop_test_data=0.05):
     y = data[variable_to_explain_name]
     X = data[[c for c in data.columns if c != variable_to_explain_name]]
     X, attribute_names = one_hot_encode(X)
+    x = normalize(x)
     X = X.values
     y = y.values
-    replace_missing_values(X)
+    replace_missing_values(X, replace_missing_method)
     n_train = int((1 - prop_test_data) * X.shape[0])
     X_train, y_train, X_test, y_test = X[:n_train, :], y[:n_train], X[n_train:, :], y[n_train:]
     return X_train, y_train, X_test, y_test, np.array(attribute_names)
@@ -103,20 +104,46 @@ def one_hot_encode(df):
     return result, attribute_names
 
 
-def replace_missing_values(data):
-    #Thibaut
-    """replace the missing values by the mean of the corresponding attribute """
-    for j in range(data.shape[1]):
-        mean_j = 0
-        cpt = 0
-        for i in range(data.shape[0]):
-            if not math.isnan(data[i][j]):
-                mean_j += data[i][j]
-                cpt += 1
-        mean_j /= cpt
-        for i in range(data.shape[0]):
-            if math.isnan(data[i][j]):
-                data[i][j] = mean_j
+def replace_missing_values(data, method=1):
+    #Thibaut, Anthony
+    """replace the missing values by the mean of the corresponding attribute (method 1) or by the value of the closest observation (method 2)"""
+    if method in [1, 'mean'] :
+        for j in range(data.shape[1]):
+            mean_j = 0
+            cpt = 0
+            for i in range(data.shape[0]):
+                if not math.isnan(data[i][j]):
+                    mean_j += data[i][j]
+                    cpt += 1
+            mean_j/=cpt
+            for i in range(data.shape[0]):
+                if math.isnan(data[i][j]):
+                    data[i][j] = mean_j
+    elif method in [2, 'closest'] :
+        for i in range(data.shape[0]) :
+            present_data = []
+            for j in range(data.shape[1]) :
+                if not math.isnan(data[i][j]) :
+                    present_data.append(j)
+            if len(present_data) < data.shape[1] :
+                closest = 0
+                dist_closest = 100000000
+                for i_ in range(data.shape[0]) :
+                    if i_ != i :
+                        dist = np.sqrt(sum([(data[i][j] - data[i_][j]) **2 for j in present_data]))
+                        if not math.isnan(dist) and dist < dist_closest :
+                            all_missing_data_present = True
+                            for j in range(data.shape[1]) :
+                                if math.isnan(data[i][j]) :
+                                    if math.isnan(data[i_][j]) :
+                                        all_missing_data_present = False
+                                        break
+                            if all_missing_data_present :
+                                closest = i_
+                                dist_closest = dist
+                for j in range(data.shape[1]) :
+                    if math.isnan(data[i][j]) :
+                        data[i][j] = data[closest][j]
 
 
 
