@@ -48,8 +48,8 @@ def get_raw_data(csv_path, variable_to_explain_name=None, prop_test_data=0.05, r
     #Thibaut
     """read the data from the csv, replace missing values, shuffle the lines and return the input matrix X
     and its associated values y
-    y contains column variable_to_explain_idx and X all the other columns
-    if variable_to_explain_idx is none it is set to the last column
+    y contains column variable_to_explain_name and X all the other columns
+    if variable_to_explain_name is none it is set to the last column
     """
 
     data = pd.read_csv(csv_path)
@@ -68,6 +68,7 @@ def get_raw_data(csv_path, variable_to_explain_name=None, prop_test_data=0.05, r
 
 def c_type(df, column):
     #Sanaa
+    """returns the type of data in column (the time of the first non NaN element"""
     i = 0
     data_array = df[column].values
     while i < len(data_array):
@@ -82,7 +83,7 @@ def c_type(df, column):
 
 def one_hot_encode(df):
     #Sanaa
-    """one hote encode the categorical attributes of a pandas data set"""
+    """detects and one hote encodes the categorical attributes of a pandas data set"""
     columns = df.columns
     #print(columns)
     data = df
@@ -107,6 +108,7 @@ def replace_missing_values(data, method=1):
     #Thibaut, Anthony
     """replace the missing values by the mean of the corresponding attribute (method 1) or by the value of the closest observation (method 2)"""
     if method in [1, 'mean'] :
+        #Thibaut
         for j in range(data.shape[1]):
             mean_j = 0
             cpt = 0
@@ -119,6 +121,7 @@ def replace_missing_values(data, method=1):
                 if math.isnan(data[i][j]):
                     data[i][j] = mean_j
     elif method in [2, 'closest'] :
+        #Anthony
         for i in range(data.shape[0]) :
             present_data = []
             for j in range(data.shape[1]) :
@@ -177,7 +180,13 @@ def correlation_input_output(X, y):
 
 def select_features_with_highest_correlation(X, y, n_features=5, title=''):
     #Thibaut
-    #c_X = cp.deepcopy(X)
+    """IN : X : input variables
+    y : output variable
+    OUT : - X_prim data array shape (N, n_features) containing the features having the highest correlation
+    with the output variable
+    - feature_highest_cor : list of nb_features element containing the indices of the columns of highest correlation
+    - corresponding correlations
+    """
     correlations = correlation_input_output(X, y)
     abs_corr = np.abs(correlations)
     perm_to_sort = abs_corr.argsort()  # get the permutation used to sort thearray
@@ -216,6 +225,7 @@ def L1(y_pred, y):
 
 def test_model_with_cross_validation(X, y, n_spits=10):
     #Thibaut
+
     from sklearn.model_selection import KFold
     kf = KFold(n_splits=n_spits)
     total_error = 0
