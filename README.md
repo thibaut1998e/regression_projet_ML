@@ -25,7 +25,7 @@ The following steps have been carried out in the project:
    - Categorical features were transformed using **One-Hot Encoding** to convert them into a numerical format suitable for regression models.
 
 3. **Normalization**  
-   - All numerical features were normalized to ensure consistent scale and improve the performance of distance-based algorithms.
+   - All numerical features were normalized to ensure consistent scale
 
 4. **Feature Selection**  
    Various strategies were applied to select the most informative features:
